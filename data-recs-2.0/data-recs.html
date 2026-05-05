@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tally — Volume &amp; Content Tally</title>
+  <link rel="stylesheet" href="src/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+        <img src="src/logo.svg" alt="Tally" style="width:36px;height:36px;border-radius:8px;display:block;flex-shrink:0;">
+        <div class="logo-text">Tally</div>
+      </a>
+      <div style="margin-left:16px; font-size:12px; color:var(--text-muted); border-left:1px solid var(--border); padding-left:16px;">Volume &amp; Content Tally</div>
+    </div>
+    <div class="header-right">
+      <button onclick="openConfigManager()" class="btn btn-secondary btn-sm">📂 Configs</button>
+      <a href="history.html" class="btn btn-secondary btn-sm">📋 History</a>
+      <div class="status-pill" id="conn-status">
+        <div class="dot"></div> Not Connected
+      </div>
+
+      <!-- Jira notification bell -->
+      <button id="jira-bell-btn" onclick="openBell()"
+        style="display:none;position:relative;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--text-muted);font-size:16px;align-items:center;gap:6px;">
+        🎫
+        <span id="jira-bell-badge"
+          style="display:none;position:absolute;top:-6px;right:-6px;background:var(--accent3);color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;">
+          !
+        </span>
+      </button>
+
+      <!-- Jira config button -->
+      <button onclick="openJiraConfig()"
+        style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:600;">
+        Jira ⚙
+      </button>
+
+      <div class="user-badge" id="user-badge" style="display:none">
+        <div class="user-avatar" id="user-initials">?</div>
+        <span id="user-name-display"></span>
+        <button class="btn btn-sm btn-danger" onclick="signOut()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── JIRA CONFIG MODAL ──────────────────────────────────── -->
+  <!-- ── CONFIG MANAGER MODAL ──────────────────────────────── -->
+  <div id="config-manager-modal"
+    style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:560px;padding:32px;animation:fadeIn .2s ease;max-height:85vh;display:flex;flex-direction:column;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);">📂 Saved Configs</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Save and load reconciliation configurations</div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="closeConfigManager()">✕</button>
+      </div>
+
+      <!-- Saved config list -->
+      <div id="config-list-wrap" style="flex:1;overflow-y:auto;margin-bottom:20px;"></div>
+
+      <!-- Save current -->
+      <div style="border-top:1px solid var(--border);padding-top:20px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">Save Current Config</div>
+        <div style="display:flex;gap:10px;">
+          <input type="text" id="config-save-name" placeholder="e.g. CRM vs Finance Q1" style="flex:1;"/>
+          <button class="btn btn-primary btn-sm" onclick="saveConfig(document.getElementById('config-save-name').value); document.getElementById('config-save-name').value='';">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="jira-config-modal"
+    style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;padding:32px;animation:fadeIn .2s ease;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);">🎫 Jira Configuration</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Connect Tally to your Jira Cloud workspace</div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="closeJiraConfig()">✕</button>
+      </div>
+
+      <!-- Setup guide -->
+      <div class="alert alert-info" style="font-size:12px;line-height:1.8;margin-bottom:20px;">
+        <strong>Setup (5 minutes):</strong><br/>
+        1. Go to <strong>atlassian.com/software/jira</strong> → Start free<br/>
+        2. Create a project — note the <strong>Project Key</strong> (e.g. <code>TALLY</code>)<br/>
+        3. Generate an API token at <strong>id.atlassian.com → Security → API tokens</strong><br/>
+        4. Paste your workspace domain, email, token, and project key below
+      </div>
+
+      <div class="form-group">
+        <label>Workspace Domain</label>
+        <input type="text" id="jira-domain" placeholder="yourorg.atlassian.net" style="font-family:var(--mono);font-size:13px;"/>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Do not include https://</div>
+      </div>
+      <div class="form-group">
+        <label>Atlassian Email</label>
+        <input type="email" id="jira-email" placeholder="you@company.com"/>
+      </div>
+      <div class="form-group">
+        <label>API Token</label>
+        <input type="password" id="jira-api-token" placeholder="Paste your API token"/>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">Generated at id.atlassian.com → Security → API tokens</div>
+      </div>
+      <div class="form-group">
+        <label>Project Key</label>
+        <input type="text" id="jira-project-key" placeholder="e.g. TALLY" style="text-transform:uppercase;font-family:var(--mono);"/>
+      </div>
+
+      <div id="jira-test-result" style="font-size:12px;min-height:18px;margin-bottom:12px;"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveJiraConfig()">Save Configuration</button>
+        <button id="btn-jira-test" class="btn btn-secondary" onclick="testJiraConnection()">Test Connection</button>
+        <button class="btn btn-secondary" onclick="closeJiraConfig()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── JIRA NOTIFICATION PANEL ────────────────────────────── -->
+  <div id="jira-notif-panel"
+    style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;padding:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:16px;width:100%;max-width:580px;padding:28px;animation:fadeIn .25s ease;max-height:80vh;overflow-y:auto;">
+      <div id="jira-notif-content"></div>
+    </div>
+  </div>
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-icon">⚡</div>
+      <h2>Connect to BigQuery</h2>
+      <p>Sign in with your Google account to authorize access to BigQuery and run cross-project reconciliation queries.</p>
+      <button class="btn-google" onclick="handleGoogleSignIn()">
+        <svg class="google-logo" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <p class="auth-note">
+        Requires BigQuery Data Viewer + Job User roles.<br/>
+        No data is stored outside your GCP project.
+      </p>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app">
+
+    <!-- STEP NAVIGATION -->
+    <div class="steps-nav">
+      <div class="step-item active" id="step-tab-1" onclick="goStep(1)">
+        <div class="step-num">1</div> Configure Projects
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" id="step-tab-2" onclick="goStep(2)">
+        <div class="step-num">2</div> Source Query
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" id="step-tab-3" onclick="goStep(3)">
+        <div class="step-num">3</div> Target Query
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" id="step-tab-4" onclick="goStep(4)">
+        <div class="step-num">4</div> Match &amp; Reconcile
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" id="step-tab-5" onclick="goStep(5)">
+        <div class="step-num">5</div> Write Exceptions
+      </div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" id="step-tab-6" onclick="goStep(6)">
+        <div class="step-num">6</div> Summary
+      </div>
+    </div>
+
+    <!-- STEP 1: CONFIGURE PROJECTS -->
+    <div class="panel active" id="step-1">
+      <div class="panel-header">
+        <h2>Configure Source &amp; Target Systems</h2>
+        <p>Choose how to load your data — upload CSV files from your laptop, or connect to BigQuery.</p>
+      </div>
+
+      <!-- ── DATA SOURCE MODE TOGGLE ── -->
+      <div style="display:flex;gap:12px;margin-bottom:24px;">
+        <button id="mode-btn-csv" class="btn btn-primary"
+          onclick="setStep1Mode('csv')"
+          style="flex:1;padding:16px;font-size:14px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <span style="font-size:28px;">📄</span>
+          <span>Upload CSV Files</span>
+          <span style="font-size:11px;font-weight:400;opacity:0.8;">Works offline · no BigQuery needed</span>
+        </button>
+        <button id="mode-btn-bq" class="btn btn-secondary"
+          onclick="setStep1Mode('bq')"
+          style="flex:1;padding:16px;font-size:14px;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:6px;">
+          <span style="font-size:28px;">☁️</span>
+          <span>Connect to BigQuery</span>
+          <span style="font-size:11px;font-weight:400;opacity:0.8;">Live queries · Google OAuth required</span>
+        </button>
+      </div>
+
+      <!-- ── CSV MODE ── -->
+      <div id="step1-csv-section">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:16px;">
+          <div class="card" style="border-color:rgba(0,229,255,0.3);">
+            <div class="card-title">🔵 Source CSV (Project A)</div>
+            <div class="form-group">
+              <label>Description <span style="color:var(--text-muted)">(optional)</span></label>
+              <input type="text" id="proj-a-desc" placeholder="e.g. HUB Transactions"/>
+            </div>
+            <div id="src-csv-upload-step1"></div>
+          </div>
+          <div class="card" style="border-color:rgba(179,136,255,0.3);">
+            <div class="card-title">🟣 Target CSV (Project B)</div>
+            <div class="form-group">
+              <label>Description <span style="color:var(--text-muted)">(optional)</span></label>
+              <input type="text" id="proj-b-desc" placeholder="e.g. CAMP Transactions"/>
+            </div>
+            <div id="tgt-csv-upload-step1"></div>
+          </div>
+        </div>
+        <div class="alert alert-info" style="font-size:12px;">
+          ℹ️ CSV headers must include the columns you want to match on (e.g. <code>transaction_id</code>).
+          After uploading, select your match key columns in Steps 2 &amp; 3.
+        </div>
+        <div id="csv-step1-status" style="margin-bottom:8px;"></div>
+      </div>
+
+      <!-- ── BIGQUERY MODE ── -->
+      <div id="step1-bq-section" style="display:none;">
+        <div class="alert alert-info">
+          ℹ️ BigQuery queries run via REST API using your OAuth token. Your credentials never leave your environment.
+        </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+
+        <!-- ── SOURCE (Project A) ── -->
+        <div class="card">
+          <div class="card-title">🔵 Source System (Project A)</div>
+          <div class="form-group">
+            <label>Source System Type</label>
+            <select id="proj-a-type" onchange="onTypeChange('src')">
+              <option value="bigquery">BigQuery</option>
+              <option value="starburst">Starburst / Trino</option>
+              <option value="oracle">Oracle</option>
+              <option value="hive">Hive / Hadoop</option>
+            </select>
+          </div>
+
+          <!-- BigQuery-specific fields -->
+          <div id="proj-a-bq-fields">
+            <div class="form-group">
+              <label>GCP Project ID</label>
+              <input type="text" id="proj-a-id" placeholder="my-project-123" oninput="validateStep1()"/>
+            </div>
+          </div>
+
+          <!-- Starburst-specific fields -->
+          <div id="proj-a-sb-fields" style="display:none;">
+            <div style="padding:10px 12px;background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.2);border-radius:8px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;">Starburst Connection</div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Host &amp; Port</label>
+                <input type="text" id="proj-a-sb-host" placeholder="starburst.internal.hsbc.com:8080" oninput="validateStep1()" style="font-family:var(--mono);font-size:12px;"/>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Catalog <span style="color:var(--text-muted);font-size:11px;">— e.g. mainframe, oracle, hive</span></label>
+                <input type="text" id="proj-a-sb-catalog" placeholder="mainframe" oninput="validateStep1()" style="font-family:var(--mono);font-size:12px;"/>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Username</label>
+                <input type="text" id="proj-a-sb-username" placeholder="service_account"/>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Bearer Token <span style="color:var(--text-muted);font-size:11px;">(optional — if auth enabled)</span></label>
+                <input type="password" id="proj-a-sb-token" placeholder="JWT bearer token"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Schema / Dataset</label>
+            <input type="text" id="proj-a-dataset" placeholder="my_dataset" oninput="validateStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Table Name</label>
+            <input type="text" id="proj-a-table" placeholder="source_table" oninput="validateStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Description <span style="color:var(--text-muted)">(optional)</span></label>
+            <input type="text" id="proj-a-desc" placeholder="e.g. CRM transactions"/>
+          </div>
+          <div id="proj-a-loc-field" class="form-group">
+            <label>Dataset Location <span style="color:var(--text-muted)">(BigQuery only)</span></label>
+            <input type="text" id="proj-a-location" placeholder="e.g. EU, US, europe-west2"/>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button class="btn btn-sm btn-secondary" onclick="testConnection('src')">⚡ Test Connection</button>
+          </div>
+          <div id="src-conn-result" style="margin-top:8px;font-size:12px;"></div>
+        </div>
+
+        <!-- ── TARGET (Project B) ── -->
+        <div class="card">
+          <div class="card-title">🟣 Target System (Project B)</div>
+          <div class="form-group">
+            <label>Target System Type</label>
+            <select id="proj-b-type" onchange="onTypeChange('tgt')">
+              <option value="bigquery">BigQuery</option>
+              <option value="starburst">Starburst / Trino</option>
+              <option value="oracle">Oracle</option>
+              <option value="hive">Hive / Hadoop</option>
+            </select>
+          </div>
+
+          <!-- BigQuery-specific fields -->
+          <div id="proj-b-bq-fields">
+            <div class="form-group">
+              <label>GCP Project ID</label>
+              <input type="text" id="proj-b-id" placeholder="another-project-456" oninput="validateStep1()"/>
+            </div>
+          </div>
+
+          <!-- Starburst-specific fields -->
+          <div id="proj-b-sb-fields" style="display:none;">
+            <div style="padding:10px 12px;background:rgba(179,136,255,0.05);border:1px solid rgba(179,136,255,0.2);border-radius:8px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--accent2);margin-bottom:6px;">Starburst Connection</div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Host &amp; Port</label>
+                <input type="text" id="proj-b-sb-host" placeholder="starburst.internal.hsbc.com:8080" oninput="validateStep1()" style="font-family:var(--mono);font-size:12px;"/>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Catalog <span style="color:var(--text-muted);font-size:11px;">— e.g. mainframe, oracle, hive</span></label>
+                <input type="text" id="proj-b-sb-catalog" placeholder="mainframe" oninput="validateStep1()" style="font-family:var(--mono);font-size:12px;"/>
+              </div>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>Username</label>
+                <input type="text" id="proj-b-sb-username" placeholder="service_account"/>
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label>Bearer Token <span style="color:var(--text-muted);font-size:11px;">(optional — if auth enabled)</span></label>
+                <input type="password" id="proj-b-sb-token" placeholder="JWT bearer token"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Schema / Dataset</label>
+            <input type="text" id="proj-b-dataset" placeholder="another_dataset" oninput="validateStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Table Name</label>
+            <input type="text" id="proj-b-table" placeholder="target_table" oninput="validateStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Description <span style="color:var(--text-muted)">(optional)</span></label>
+            <input type="text" id="proj-b-desc" placeholder="e.g. Finance ledger"/>
+          </div>
+          <div id="proj-b-loc-field" class="form-group">
+            <label>Dataset Location <span style="color:var(--text-muted)">(BigQuery only)</span></label>
+            <input type="text" id="proj-b-location" placeholder="e.g. EU, US, europe-west2"/>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button class="btn btn-sm btn-secondary" onclick="testConnection('tgt')">⚡ Test Connection</button>
+          </div>
+          <div id="tgt-conn-result" style="margin-top:8px;font-size:12px;"></div>
+        </div>
+
+      </div>
+
+      <!-- PROJECT C — PRIVACY ZONE -->
+      <div class="card" style="margin-top:20px; border-color:var(--accent2);">
+        <div class="card-title">🔒 Reconciliation Project (Project C) — Privacy Zone &nbsp;<span class="lang-badge" style="font-size:11px;">GCP BigQuery only</span></div>
+        <div class="alert alert-info" style="font-size:12px; margin-bottom:12px;">
+          Project C is always <strong>Google BigQuery</strong>. It only receives <strong>hashed keys + amounts</strong>. Real keys never leave Projects A &amp; B. The salt never leaves your browser.
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px;">
+          <div class="form-group">
+            <label>GCP Project ID</label>
+            <input type="text" id="proj-c-id" placeholder="neutral-project-789" oninput="validateStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Dataset</label>
+            <input type="text" id="proj-c-dataset" placeholder="rec_staging" oninput="validateStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="proj-c-location" placeholder="US"/>
+          </div>
+        </div>
+        <div class="form-group" style="max-width:420px;">
+          <label>Secret Salt &nbsp;<span style="color:var(--accent3); font-size:11px;">⚠️ Never sent to any GCP project — stays in browser only</span></label>
+          <input type="password" id="secret-salt" placeholder="Enter a secret passphrase" oninput="validateStep1(); updateHashPreviews()"/>
+        </div>
+      </div>
+      </div><!-- /step1-bq-section -->
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-step1-next" onclick="goStep(2)" disabled>
+          Next: Configure Source Query →
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2: SOURCE QUERY -->
+    <div class="panel" id="step-2">
+      <div class="panel-header">
+        <h2>Source Query <span class="tag tag-blue" id="src-proj-label" style="font-size:12px;vertical-align:middle;"></span></h2>
+        <p>Write a query to pull data from Project A. This will be your left-hand dataset.</p>
+      </div>
+      <!-- FILTER BUILDER -->
+      <div class="card">
+        <div class="card-title">🔍 Filter Builder <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— filters are injected into the query automatically</span></div>
+        <div id="src-filters-list"></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-sm btn-secondary" onclick="addFilter('src')">+ Add Filter</button>
+          <button class="btn btn-sm btn-secondary" onclick="clearFilters('src')">Clear All</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;">SQL Query — Source</div>
+          <div style="display:flex;gap:6px;">
+            <button id="src-mode-bq"  class="btn btn-sm btn-primary"   onclick="setDataMode('src','bq')">☁️ BigQuery</button>
+            <button id="src-mode-csv" class="btn btn-sm btn-secondary" onclick="setDataMode('src','csv')">📄 CSV File</button>
+          </div>
+        </div>
+        <div id="src-bq-section">
+          <div class="query-editor-wrap">
+            <div class="query-toolbar">
+              <div class="query-toolbar-left">
+                <span class="lang-badge">BigQuery SQL</span>
+                <span class="lang-badge dim" id="src-bq-ref"></span>
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="insertTemplate('src')">Insert Template</button>
+            </div>
+            <textarea class="code" id="src-query" spellcheck="false" placeholder="SELECT * FROM `project.dataset.table` LIMIT 1000"></textarea>
+          </div>
+        </div>
+        <div id="src-csv-section" style="display:none;">
+          <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;">
+            Upload a CSV file — headers must be in the first row. The match key column will be auto-detected from the headers.
+          </div>
+          <div id="src-csv-upload"></div>
+        </div>
+      </div>
+      <div class="card" style="border-color:var(--accent2);">
+        <div class="card-title">🔑 Key &amp; Content Column Config
+          <button class="btn btn-sm btn-secondary" style="float:right;" onclick="fetchColumns('src')">⟳ Load Columns</button>
+        </div>
+
+        <!-- PRIMARY MATCH KEY -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Primary Match Key — Volume Reconciliation</div>
+        <div class="form-group">
+          <label>Match Key Column <span style="color:var(--accent3);">*</span></label>
+          <select id="src-match-key" onchange="updateMatchKey('src', this.value)"
+            style="background:var(--surface-2);border:1px solid var(--cyan);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;width:100%;">
+            <option value="">— click ⟳ Load Columns first —</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="src-pk-hash" checked onchange="setPKHash('src',this.checked);updateHashPreviews()"/>
+              <span>Hash this key <span style="color:var(--text-muted);">(recommended — keeps raw value out of Project C)</span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- CONTENT RECONCILIATION COLUMNS -->
+        <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Content Reconciliation Columns — compared on matched records</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.6;">
+            Select columns to compare between source and target.
+            <strong style="color:var(--text);">Hash OFF</strong> (default) — actual values visible in Project C for comparison.
+            <strong style="color:var(--text);">Hash ON 🔒</strong> — value protected, but mismatch still detected.
+          </div>
+          <div id="src-content-cols-list"></div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="btn btn-sm btn-secondary" onclick="addContentCol('src')">+ Add Column</button>
+            <button class="btn btn-sm btn-secondary" onclick="clearContentCols('src')">Clear All</button>
+          </div>
+        </div>
+
+        <!-- NORMALISATION -->
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">
+            Normalisation <span style="font-size:11px;">(applied before hashing only)</span>
+          </label>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="src-norm-trim" checked onchange="updateHashPreviews()"/> TRIM</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="src-norm-upper" checked onchange="updateHashPreviews()"/> UPPER</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="src-norm-lpad" onchange="updateHashPreviews()"/> LPAD &nbsp;<input type="number" id="src-lpad-width" value="10" style="width:56px;" oninput="updateHashPreviews()"/></label>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;" id="src-hash-preview-wrap">
+          <label>Primary Key Hash Preview</label>
+          <code id="src-hash-preview" style="display:block;padding:10px;background:rgba(0,0,0,0.3);border-radius:6px;font-size:11px;color:var(--cyan);word-break:break-all;"></code>
+        </div>
+        <div id="src-oracle-template" style="display:none;">
+          <div class="alert alert-info" style="font-size:12px;">
+            <strong>Non-BigQuery source detected.</strong> Run the SQL below on your source system and load the result into <code>project-c.rec_staging.source_hashed</code>.
+          </div>
+          <textarea class="code" id="src-platform-sql" style="min-height:120px;" spellcheck="false" readonly></textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goStep(3)">Next: Configure Target Query →</button>
+        <button class="btn btn-secondary" onclick="goStep(1)">← Back</button>
+      </div>
+    </div>
+
+    <!-- STEP 3: TARGET QUERY -->
+    <div class="panel" id="step-3">
+      <div class="panel-header">
+        <h2>Target Query <span class="tag tag-yellow" id="tgt-proj-label" style="font-size:12px;vertical-align:middle;"></span></h2>
+        <p>Write a query to pull data from Project B. This will be your right-hand dataset for reconciliation.</p>
+      </div>
+      <!-- FILTER BUILDER -->
+      <div class="card">
+        <div class="card-title">🔍 Filter Builder <span style="font-size:11px;color:var(--text-muted);font-weight:400;">— filters are injected into the query automatically</span></div>
+        <div id="tgt-filters-list"></div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="btn btn-sm btn-secondary" onclick="addFilter('tgt')">+ Add Filter</button>
+          <button class="btn btn-sm btn-secondary" onclick="clearFilters('tgt')">Clear All</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="card-title" style="margin-bottom:0;">SQL Query — Target</div>
+          <div style="display:flex;gap:6px;">
+            <button id="tgt-mode-bq"  class="btn btn-sm btn-primary"   onclick="setDataMode('tgt','bq')">☁️ BigQuery</button>
+            <button id="tgt-mode-csv" class="btn btn-sm btn-secondary" onclick="setDataMode('tgt','csv')">📄 CSV File</button>
+          </div>
+        </div>
+        <div id="tgt-bq-section">
+          <div class="query-editor-wrap">
+            <div class="query-toolbar">
+              <div class="query-toolbar-left">
+                <span class="lang-badge">BigQuery SQL</span>
+                <span class="lang-badge dim" id="tgt-bq-ref"></span>
+              </div>
+              <button class="btn btn-sm btn-secondary" onclick="insertTemplate('tgt')">Insert Template</button>
+            </div>
+            <textarea class="code" id="tgt-query" spellcheck="false" placeholder="SELECT * FROM `project.dataset.table` LIMIT 1000"></textarea>
+          </div>
+        </div>
+        <div id="tgt-csv-section" style="display:none;">
+          <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;">
+            Upload a CSV file — headers must be in the first row. The match key column will be auto-detected from the headers.
+          </div>
+          <div id="tgt-csv-upload"></div>
+        </div>
+      </div>
+      <div class="card" style="border-color:var(--accent2);">
+        <div class="card-title">🔑 Key &amp; Content Column Config
+          <button class="btn btn-sm btn-secondary" style="float:right;" onclick="fetchColumns('tgt')">⟳ Load Columns</button>
+        </div>
+
+        <!-- PRIMARY MATCH KEY -->
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;">Primary Match Key — Volume Reconciliation</div>
+        <div class="form-group">
+          <label>Match Key Column <span style="color:var(--accent3);">*</span></label>
+          <select id="tgt-match-key" onchange="updateMatchKey('tgt', this.value)"
+            style="background:var(--surface-2);border:1px solid var(--cyan);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;width:100%;">
+            <option value="">— click ⟳ Load Columns first —</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:8px;">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;">
+              <input type="checkbox" id="tgt-pk-hash" checked onchange="setPKHash('tgt',this.checked);updateHashPreviews()"/>
+              <span>Hash this key <span style="color:var(--text-muted);">(recommended — keeps raw value out of Project C)</span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- CONTENT RECONCILIATION COLUMNS -->
+        <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:16px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;">Content Reconciliation Columns — compared on matched records</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.6;">
+            These columns are mapped to source columns by position (1st source col ↔ 1st target col, etc.).
+          </div>
+          <div id="tgt-content-cols-list"></div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="btn btn-sm btn-secondary" onclick="addContentCol('tgt')">+ Add Column</button>
+            <button class="btn btn-sm btn-secondary" onclick="clearContentCols('tgt')">Clear All</button>
+          </div>
+        </div>
+
+        <!-- NORMALISATION -->
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:8px;">
+            Normalisation <span style="font-size:11px;">(applied before hashing only)</span>
+          </label>
+          <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="tgt-norm-trim" checked onchange="updateHashPreviews()"/> TRIM</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="tgt-norm-upper" checked onchange="updateHashPreviews()"/> UPPER</label>
+            <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="tgt-norm-lpad" onchange="updateHashPreviews()"/> LPAD &nbsp;<input type="number" id="tgt-lpad-width" value="10" style="width:56px;" oninput="updateHashPreviews()"/></label>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Primary Key Hash Preview</label>
+          <code id="tgt-hash-preview" style="display:block;padding:10px;background:rgba(0,0,0,0.3);border-radius:6px;font-size:11px;color:var(--cyan);word-break:break-all;"></code>
+        </div>
+        <div id="tgt-oracle-template" style="display:none;">
+          <div class="alert alert-info" style="font-size:12px;">
+            <strong>Non-BigQuery target detected.</strong> Run the SQL below on your target system and load the result into <code>project-c.rec_staging.target_hashed</code>.
+          </div>
+          <textarea class="code" id="tgt-platform-sql" style="min-height:120px;" spellcheck="false" readonly></textarea>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="goStep(4)">Next: Configure Reconciliation →</button>
+        <button class="btn btn-secondary" onclick="goStep(2)">← Back</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: RECONCILE -->
+    <div class="panel" id="step-4">
+      <div class="panel-header">
+        <h2>Volume &amp; Content Reconciliation</h2>
+        <p>Configure the match key join, then run volume reconciliation followed by content column comparison on matched records.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">Join Configuration</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Join Type</label>
+            <select id="join-type" onchange="buildRecQuery()">
+              <option value="FULL OUTER JOIN">Full Outer Join (show all unmatched)</option>
+              <option value="INNER JOIN">Inner Join (matched only)</option>
+              <option value="LEFT JOIN">Left Join (all source + matched target)</option>
+              <option value="RIGHT JOIN">Right Join (matched source + all target)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Match Key Column (Source)</label>
+            <input type="text" id="join-key-src" placeholder="e.g. transaction_id" oninput="buildRecQuery()"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Match Key Column (Target)</label>
+            <input type="text" id="join-key-tgt" placeholder="e.g. txn_id" oninput="buildRecQuery()"/>
+          </div>
+          <div class="form-group">
+            <label>Amount/Value Column (for variance)</label>
+            <input type="text" id="amount-col" placeholder="e.g. amount" oninput="buildRecQuery()"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Additional Match Columns <span style="color:var(--text-muted)">(comma-separated, optional)</span></label>
+          <input type="text" id="extra-cols" placeholder="e.g. currency, status" oninput="buildRecQuery()"/>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Generated Reconciliation Query</div>
+        <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;">
+          This query runs in <strong>Project A</strong> but references <strong>Project B</strong> using fully-qualified table names — standard BigQuery cross-project syntax.
+        </div>
+        <div class="query-editor-wrap">
+          <div class="query-toolbar">
+            <span class="lang-badge">BigQuery SQL — Cross-Project</span>
+            <button class="btn btn-sm btn-secondary" onclick="copyRecQuery()">Copy SQL</button>
+          </div>
+          <textarea class="code purple" id="rec-query" style="min-height:200px;" spellcheck="false" readonly></textarea>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button class="btn btn-primary" onclick="runReconciliation()">▶ Run Reconciliation</button>
+          <button class="btn btn-secondary" onclick="goStep(3)">← Back</button>
+        </div>
+      </div>
+      <!-- Banner injected by jira.js when an exclusion is applied -->
+      <div id="jira-rerun-banner" style="display:none;"></div>
+
+      <div id="rec-result-wrap" style="display:none;">
+        <div class="card">
+          <div class="card-title">📊 Volume &amp; Content Reconciliation Results</div>
+          <div id="rec-result-body"></div>
+          <div class="btn-row" style="margin-top:16px">
+            <button class="btn btn-primary" onclick="goStep(5)">Write Exceptions → Step 5</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content reconciliation results — shown below volume results -->
+      <div id="content-rec-result-wrap" style="display:none;margin-top:16px;">
+        <div class="card" style="border-color:rgba(0,229,255,0.2);">
+          <div class="card-title">📋 Content Reconciliation Results</div>
+          <div id="content-rec-result-body"></div>
+        </div>
+      </div>
+
+      <!-- Save config — always visible in Step 4 -->
+      <div style="margin-top:16px;padding:20px 24px;background:var(--surface);border:1px solid var(--border);border-radius:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">💾 Save / Overwrite Config</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Saves all project settings, queries, and any agent exclusions. Use the same name to overwrite an existing config.</div>
+        <div style="display:flex;gap:10px;">
+          <input type="text" id="step4-config-name" placeholder="e.g. CRM vs Finance Q1" style="flex:1;"/>
+          <button class="btn btn-primary btn-sm" onclick="saveConfig(document.getElementById('step4-config-name').value); document.getElementById('step4-config-name').value='';">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: WRITE EXCEPTIONS -->
+    <div class="panel" id="step-5">
+      <div class="panel-header">
+        <h2>Write Exceptions to Project A</h2>
+        <p>Join unmatched source records from Project C back to Project A and write them to an exceptions table.</p>
+      </div>
+
+      <div class="alert alert-info">
+        ℹ️ This query runs inside <strong>Project A</strong>. It rehashes the original match key column and joins against <code>unmatched_keys</code> in Project C to retrieve the real plaintext records — without Project C ever seeing them.
+      </div>
+
+      <div class="card">
+        <div class="card-title">Output Configuration</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Exceptions Table Name</label>
+            <input type="text" id="exceptions-table" placeholder="e.g. exceptions_2026_04_17"
+              oninput="buildWriteBackPreview()" />
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+              Will be created in <strong id="exceptions-dest-label">project-a.dataset</strong>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Write Disposition</label>
+            <select id="exceptions-disposition" onchange="buildWriteBackPreview()">
+              <option value="CREATE OR REPLACE">Overwrite if exists</option>
+              <option value="CREATE TABLE IF NOT EXISTS">Skip if exists</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Generated Write-Back SQL</div>
+        <div class="query-editor-wrap">
+          <div class="query-toolbar">
+            <span class="lang-badge">BigQuery SQL — Project A</span>
+            <button class="btn btn-sm btn-secondary" onclick="copyWriteBackSQL()">Copy SQL</button>
+          </div>
+          <textarea class="code purple" id="writeback-query" style="min-height:180px;" spellcheck="false" readonly></textarea>
+        </div>
+        <div class="btn-row" style="margin-top:16px;">
+          <button class="btn btn-primary" onclick="runWriteBack()">▶ Write Exceptions to Project A</button>
+          <button class="btn btn-secondary" onclick="goStep(4)">← Back</button>
+        </div>
+      </div>
+
+      <div id="writeback-result-wrap" style="display:none;">
+        <div class="card">
+          <div class="card-title">Write-Back Result</div>
+          <div id="writeback-result-body"></div>
+          <div class="btn-row" style="margin-top:16px;">
+            <button class="btn btn-primary" onclick="buildSummary(); goStep(6)">Generate Summary Report →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 6: SUMMARY -->
+    <div class="panel" id="step-6">
+      <div class="panel-header">
+        <h2>Reconciliation Summary</h2>
+        <p>Cross-project match analysis between Source (A) and Target (B).</p>
+      </div>
+      <div id="summary-body">
+        <div class="empty"><div class="icon">📊</div>Run reconciliation first to see summary.</div>
+      </div>
+
+      <!-- Jira ticket section — appears after summary renders -->
+      <div id="jira-step6-section" style="display:none;margin-top:24px;">
+        <div class="card" style="border-color:rgba(0,229,255,0.2);">
+          <div class="card-title" style="display:flex;align-items:center;gap:10px;">
+            🎫 Raise Jira Ticket
+            <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:4px;">— notify source team of exceptions</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.7;">
+            Create a Jira ticket on your source team's board with exception count, dataset location,
+            and instructions for the team to reply with any records to exclude. Tally will poll
+            for responses and surface any exclusion requests for your approval.
+          </p>
+          <div class="btn-row">
+            <button id="btn-create-jira" class="btn btn-primary" onclick="createJiraTicket()">📋 Create Jira Ticket</button>
+            <button class="btn btn-secondary" onclick="openJiraConfig()">⚙ Jira Settings</button>
+          </div>
+          <div style="margin-top:16px;padding:14px 16px;background:rgba(179,136,255,0.06);border:1px solid rgba(179,136,255,0.2);border-radius:8px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:18px;flex-shrink:0;">🤖</span>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:5px;">AI Agent — Roadmap</div>
+              <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin:0;">
+                When the source team replies with exclusion instructions, an <strong style="color:var(--text);">Agentic AI</strong> can
+                read the comment in natural language, translate it into a SQL exclusion clause,
+                update the reconciliation query, and re-run — all pending your approval.
+              </p>
+            </div>
+          </div>
+          <!-- Ticket link appears here after creation -->
+          <div id="jira-ticket-wrap" style="display:none;margin-top:12px;"></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /app -->
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- App scripts -->
+  <script src="src/auth.js"></script>
+  <script src="src/bigquery.js"></script>
+  <script src="src/app.js"></script>
+  <script src="src/jira.js"></script>
+  <script src="src/config.js"></script>
+  <script src="src/qvd.js"></script>
+  <script src="src/csv.js"></script>
+</body>
+</html>

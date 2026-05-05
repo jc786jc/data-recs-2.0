@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tally — Data Quality Measurement</title>
+  <link rel="stylesheet" href="src/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <a href="index.html" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+        <img src="src/logo.svg" alt="Tally" style="width:36px;height:36px;border-radius:8px;display:block;flex-shrink:0;">
+        <div class="logo-text">Tally</div>
+      </a>
+      <div style="margin-left:16px;font-size:12px;color:var(--text-muted);border-left:1px solid var(--border);padding-left:16px;">Data Quality Measurement</div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill" id="conn-status"><div class="dot"></div> Not Connected</div>
+
+      <button id="jira-bell-btn" onclick="openBell()"
+        style="display:none;position:relative;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--text-muted);font-size:16px;align-items:center;gap:6px;">
+        🎫
+        <span id="jira-bell-badge"
+          style="display:none;position:absolute;top:-6px;right:-6px;background:var(--accent3);color:#fff;font-size:9px;font-weight:700;width:16px;height:16px;border-radius:50%;align-items:center;justify-content:center;">!</span>
+      </button>
+
+      <button onclick="openJiraConfig()"
+        style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--text-muted);font-size:13px;font-weight:600;">
+        Jira ⚙
+      </button>
+
+      <div class="user-badge" id="user-badge" style="display:none">
+        <div class="user-avatar" id="user-initials">?</div>
+        <span id="user-name-display"></span>
+        <button class="btn btn-sm btn-danger" onclick="signOut()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- JIRA CONFIG MODAL -->
+  <div id="jira-config-modal"
+    style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;padding:32px;animation:fadeIn .2s ease;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);">🎫 Jira Configuration</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">Connect Tally to your Jira Cloud workspace</div>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="closeJiraConfig()">✕</button>
+      </div>
+      <div class="form-group"><label>Workspace Domain</label>
+        <input type="text" id="jira-domain" placeholder="yourorg.atlassian.net"/>
+      </div>
+      <div class="form-group"><label>Atlassian Email</label>
+        <input type="email" id="jira-email" placeholder="you@company.com"/>
+      </div>
+      <div class="form-group"><label>API Token</label>
+        <input type="password" id="jira-api-token" placeholder="Paste your API token"/>
+      </div>
+      <div class="form-group"><label>Project Key</label>
+        <input type="text" id="jira-project-key" placeholder="e.g. TALLY" style="text-transform:uppercase;font-family:var(--mono);"/>
+      </div>
+      <div id="jira-test-result" style="font-size:12px;min-height:18px;margin-bottom:12px;"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="saveJiraConfig()">Save Configuration</button>
+        <button id="btn-jira-test" class="btn btn-secondary" onclick="testJiraConnection()">Test Connection</button>
+        <button class="btn btn-secondary" onclick="closeJiraConfig()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JIRA NOTIFICATION PANEL -->
+  <div id="jira-notif-panel"
+    style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;padding:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--accent);border-radius:16px;width:100%;max-width:580px;padding:28px;animation:fadeIn .25s ease;max-height:80vh;overflow-y:auto;">
+      <div id="jira-notif-content"></div>
+    </div>
+  </div>
+
+  <!-- AUTH SCREEN -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-icon">📊</div>
+      <h2>Connect to BigQuery</h2>
+      <p>Sign in with your Google account to run Data Quality Measurement checks on your BigQuery tables.</p>
+      <button class="btn-google" onclick="handleGoogleSignIn()">
+        <svg class="google-logo" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Continue with Google
+      </button>
+      <p class="auth-note">Requires BigQuery Data Viewer + Job User roles.<br/>No data is stored outside your GCP project.</p>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app">
+
+    <!-- STEP NAV -->
+    <div class="steps-nav">
+      <div class="step-item active" onclick="dqmGo(1)"><div class="step-num">1</div> Configure</div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" onclick="dqmGo(2)"><div class="step-num">2</div> Define Query</div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" onclick="dqmGo(3)"><div class="step-num">3</div> Select PDEs</div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" onclick="dqmGo(4)"><div class="step-num">4</div> Define Rules</div>
+      <div class="step-arrow">›</div>
+      <div class="step-item disabled" onclick="dqmGo(5)"><div class="step-num">5</div> Run &amp; Results</div>
+    </div>
+
+    <!-- ── STEP 1: CONFIGURE ─────────────────────────────────────── -->
+    <div class="panel active" id="dqm-step-1">
+      <div class="panel-header">
+        <h2>Configure</h2>
+        <p>Set your BigQuery source table and run metadata. These values appear in the results output.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- BigQuery Connection -->
+        <div class="card">
+          <div class="card-title">☁️ BigQuery Connection</div>
+          <div class="form-group">
+            <label>GCP Project ID</label>
+            <input type="text" id="dqm-project" placeholder="my-project-123" oninput="validateDQMStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Dataset</label>
+            <input type="text" id="dqm-dataset" placeholder="my_dataset" oninput="validateDQMStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Table Name</label>
+            <input type="text" id="dqm-table" placeholder="my_table" oninput="validateDQMStep1()"/>
+          </div>
+          <div class="form-group">
+            <label>Location <span style="color:var(--text-muted);font-size:11px;">(optional)</span></label>
+            <input type="text" id="dqm-location" placeholder="US"/>
+          </div>
+          <div class="btn-row" style="margin-top:4px;">
+            <button class="btn btn-sm btn-secondary" onclick="testDQMConnection()">⚡ Test Connection</button>
+          </div>
+          <div id="dqm-conn-result" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
+        </div>
+
+        <!-- Run Metadata -->
+        <div class="card">
+          <div class="card-title">🏷️ Run Metadata</div>
+          <div class="alert alert-info" style="font-size:12px;margin-bottom:16px;">
+            These values appear as static columns in every row of the results output — useful for tracking runs across months and systems.
+          </div>
+          <div class="form-group">
+            <label>System Name</label>
+            <input type="text" id="dqm-system-name" placeholder="e.g. CAMP UK PROD"/>
+          </div>
+          <div class="form-group">
+            <label>Period Label <span style="color:var(--text-muted);font-size:11px;">(display only)</span></label>
+            <input type="text" id="dqm-period" placeholder="e.g. April 2026"/>
+          </div>
+          <div class="form-group">
+            <label>Execution Date</label>
+            <input type="date" id="dqm-exec-date"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn btn-primary" id="btn-dqm-next1" onclick="dqmGo(2)" disabled>
+          Next: Define Query →
+        </button>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: DEFINE QUERY ──────────────────────────────────── -->
+    <div class="panel" id="dqm-step-2">
+      <div class="panel-header">
+        <h2>Define Query</h2>
+        <p>Write the SELECT statement and optional WHERE filters. Records excluded by the WHERE clause are counted as <strong>Filtered</strong> in results.</p>
+      </div>
+
+      <!-- SELECT SQL -->
+      <div class="card">
+        <div class="card-title">SELECT Statement</div>
+        <div class="alert alert-info" style="font-size:12px;margin-bottom:12px;">
+          Write the full SELECT including FROM and any JOINs. Do <strong>not</strong> add a WHERE clause here — use the filter box below.
+        </div>
+        <div class="query-editor-wrap">
+          <div class="query-toolbar">
+            <span class="lang-badge">BigQuery SQL</span>
+          </div>
+          <textarea class="code" id="dqm-select-sql" style="min-height:120px;" spellcheck="false"
+            placeholder="SELECT * FROM `project.dataset.table`"></textarea>
+        </div>
+      </div>
+
+      <!-- WHERE Filters -->
+      <div class="card">
+        <div class="card-title">WHERE Filters <span style="font-size:11px;font-weight:400;color:var(--text-muted);">— optional, excludes records before DQ checks</span></div>
+        <div class="query-editor-wrap">
+          <div class="query-toolbar">
+            <span class="lang-badge">WHERE clause only — no WHERE keyword</span>
+          </div>
+          <textarea class="code" id="dqm-where-sql" style="min-height:80px;" spellcheck="false"
+            placeholder="e.g. processing_date = '2026-04-30' AND status != 'CANCELLED'"></textarea>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+          Tally will run <code>SELECT COUNT(*) FROM (your SELECT)</code> to get total records, then apply this WHERE clause and count evaluated records. The difference is your <strong>Filtered</strong> count.
+        </div>
+      </div>
+
+      <!-- Optional JOIN -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div class="card-title" style="margin-bottom:0;">JOIN Another Table <span style="font-size:11px;font-weight:400;color:var(--text-muted);">— optional</span></div>
+          <button id="btn-toggle-join" class="btn btn-sm btn-secondary" onclick="toggleJoinSection()">
+            + Add JOIN to Another Table
+          </button>
+        </div>
+        <div id="dqm-join-section" style="display:none;margin-top:16px;">
+          <div style="display:grid;grid-template-columns:1fr auto;gap:12px;margin-bottom:12px;align-items:end;">
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Join Table Name <span style="color:var(--text-muted);font-size:11px;">(same dataset)</span></label>
+              <input type="text" id="dqm-join-table" placeholder="e.g. ref_accounts" style="font-family:var(--mono);font-size:12px;"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Join Type</label>
+              <select id="dqm-join-type">
+                <option value="LEFT JOIN">LEFT JOIN</option>
+                <option value="INNER JOIN">INNER JOIN</option>
+                <option value="RIGHT JOIN">RIGHT JOIN</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Join Condition (ON clause)</label>
+            <input type="text" id="dqm-join-on" placeholder="e.g. t.account_id = j.account_id" style="font-family:var(--mono);font-size:12px;"/>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Additional Filter on Joined Table <span style="color:var(--text-muted);font-size:11px;">(optional AND condition)</span></label>
+            <input type="text" id="dqm-join-where" placeholder="e.g. j.status = 'ACTIVE'" style="font-family:var(--mono);font-size:12px;"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn btn-primary" onclick="dqmGo(3)">Next: Select PDEs →</button>
+        <button class="btn btn-secondary" onclick="dqmGo(1)">← Back</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 3: SELECT PDEs & GROUPING ────────────────────────── -->
+    <div class="panel" id="dqm-step-3">
+      <div class="panel-header">
+        <h2>Select PDEs &amp; Grouping</h2>
+        <p>Load table columns, choose which Physical Data Elements to check, and set the grouping column for results.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+        <!-- Column selector -->
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div class="card-title" style="margin-bottom:0;">Physical Data Elements</div>
+            <button class="btn btn-sm btn-secondary" onclick="loadDQMColumns()">⟳ Load Columns</button>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px;">
+            <button class="btn btn-sm btn-secondary" onclick="selectAllCols()">Select All</button>
+            <button class="btn btn-sm btn-secondary" onclick="clearAllCols()">Clear All</button>
+            <span id="dqm-pde-count" style="font-size:12px;color:var(--text-muted);align-self:center;margin-left:4px;">None selected</span>
+          </div>
+          <div id="dqm-col-list" style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px;">
+            <div style="font-size:12px;color:var(--text-muted);padding:8px;">Click ⟳ Load Columns to fetch from BigQuery.</div>
+          </div>
+        </div>
+
+        <!-- Grouping & Metadata -->
+        <div class="card">
+          <div class="card-title">Results Grouping</div>
+          <div class="form-group">
+            <label>Group Results By</label>
+            <select id="dqm-group-col" onchange="onGroupColChange()">
+              <option value="">— load columns first —</option>
+            </select>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+              Results will show one row per (group value × PDE). Typically your Line of Business column.
+            </div>
+          </div>
+
+          <div style="margin-top:20px;">
+            <div class="card-title">Static Output Columns</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
+              These appear as fixed columns on every result row — useful for filtering in Qlik / reports.
+            </div>
+            <div class="form-group">
+              <label>System Name</label>
+              <input type="text" id="dqm-out-system" placeholder="e.g. CAMP UK PROD"
+                oninput="setVal('dqm-system-name',this.value)"/>
+            </div>
+            <div class="form-group">
+              <label>Period</label>
+              <input type="text" id="dqm-out-period" placeholder="e.g. April 2026"
+                oninput="setVal('dqm-period',this.value)"/>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label>Execution Date</label>
+              <input type="date" id="dqm-out-date"
+                oninput="setVal('dqm-exec-date',this.value)"/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn btn-primary" id="btn-dqm-next3" onclick="dqmGo(4)" disabled>
+          Next: Define Rules →
+        </button>
+        <button class="btn btn-secondary" onclick="dqmGo(2)">← Back</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 4: DEFINE RULES ──────────────────────────────────── -->
+    <div class="panel" id="dqm-step-4">
+      <div class="panel-header">
+        <h2>Define Rules</h2>
+        <p>Configure data quality rules for each selected PDE. Rules cascade — Conformity runs on Completeness pass, Specificity on Conformity pass, Reference on Specificity pass.</p>
+      </div>
+
+      <!-- Rule legend -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--green);"></div>
+          <span style="color:var(--green);font-weight:700;">Completeness</span>
+          <span style="color:var(--text-muted);">— always applied</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--cyan);"></div>
+          <span style="color:var(--cyan);font-weight:700;">Conformity</span>
+          <span style="color:var(--text-muted);">— on completeness pass</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--yellow);"></div>
+          <span style="color:var(--yellow);font-weight:700;">Specificity</span>
+          <span style="color:var(--text-muted);">— on conformity pass</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--accent2);"></div>
+          <span style="color:var(--accent2);font-weight:700;">Reference</span>
+          <span style="color:var(--text-muted);">— on specificity pass</span>
+        </div>
+      </div>
+
+      <div id="dqm-rule-cards">
+        <div class="empty"><div class="icon">⚙️</div>Go back to Step 3 and select PDEs first.</div>
+      </div>
+
+      <div class="btn-row" style="margin-top:20px;">
+        <button class="btn btn-primary" onclick="dqmGo(5)">Next: Run &amp; Results →</button>
+        <button class="btn btn-secondary" onclick="dqmGo(3)">← Back</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 5: RUN & RESULTS ─────────────────────────────────── -->
+    <div class="panel" id="dqm-step-5">
+      <div class="panel-header">
+        <h2>Run &amp; Results</h2>
+        <p>Execute all DQ checks. One BigQuery query runs per PDE — results are combined into a single summary table.</p>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">Execution</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.7;">
+          Tally will run:
+          <strong style="color:var(--text);">2 + N queries</strong> —
+          1 for total count, 1 for evaluated count, then one per PDE for rule checks.
+          Large tables may take a few minutes.
+        </div>
+        <div class="btn-row">
+          <button id="btn-run-dqm" class="btn btn-primary" onclick="runDQM()">▶ Run DQM</button>
+          <button class="btn btn-secondary" onclick="dqmGo(4)">← Back to Rules</button>
+        </div>
+        <div id="dqm-run-status" style="margin-top:12px;"></div>
+      </div>
+
+      <div id="dqm-results-wrap">
+        <div class="empty"><div class="icon">📊</div>Click Run DQM to execute all checks.</div>
+      </div>
+
+      <!-- JIRA + AGENT SECTION — appears after results run -->
+      <div id="dqm-jira-section" style="display:none;margin-top:24px;">
+        <div class="card" style="border-color:rgba(0,229,255,0.2);">
+          <div class="card-title" style="display:flex;align-items:center;gap:10px;">
+            🎫 Raise Jira Ticket
+            <span style="font-size:11px;font-weight:400;color:var(--text-muted);">— notify the data team of DQ exceptions</span>
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.7;">
+            Create a Jira ticket with the DQ summary. The data team can review and reply with explanations
+            or remediation actions. The AI agent reads their replies and provides recommendations.
+          </p>
+          <div class="btn-row">
+            <button id="btn-create-dqm-jira" class="btn btn-primary" onclick="createDQMJiraTicket()">🎫 Create Jira Ticket</button>
+            <button class="btn btn-secondary" onclick="openJiraConfig()">⚙ Jira Settings</button>
+          </div>
+
+          <div style="margin-top:16px;padding:14px 16px;background:rgba(179,136,255,0.06);border:1px solid rgba(179,136,255,0.2);border-radius:8px;display:flex;align-items:flex-start;gap:10px;">
+            <span style="font-size:18px;flex-shrink:0;">🤖</span>
+            <div>
+              <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent2);margin-bottom:5px;">AI Agent</div>
+              <p style="font-size:12px;color:var(--text-muted);line-height:1.8;margin:0;">
+                Once the team replies on Jira, click <strong style="color:var(--text);">Ask Agent</strong> on the ticket card.
+                Claude will read the comments and provide a <strong style="color:var(--text);">data quality assessment</strong>
+                with root cause analysis and remediation recommendations.
+              </p>
+            </div>
+          </div>
+
+          <div id="dqm-ticket-wrap" style="display:none;margin-top:16px;"></div>
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /app -->
+
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="src/auth.js"></script>
+  <script src="src/bigquery.js"></script>
+  <script src="src/jira.js"></script>
+  <script src="src/dqm.js"></script>
+
+  <script>
+    // Set today's date on load
+    window.addEventListener('load', () => {
+      const today = new Date().toISOString().split('T')[0];
+      const d1 = document.getElementById('dqm-exec-date');
+      const d2 = document.getElementById('dqm-out-date');
+      if (d1 && !d1.value) d1.value = today;
+      if (d2 && !d2.value) d2.value = today;
+    });
+  </script>
+
+</body>
+</html>

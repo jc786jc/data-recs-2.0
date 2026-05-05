@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tally — Data, Verified.</title>
+  <link rel="stylesheet" href="src/styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    .home-wrap {
+      max-width: 960px;
+      margin: 60px auto;
+      padding: 0 24px;
+    }
+    .home-hero {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .home-hero .hero-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, var(--cyan), var(--accent2));
+      font-size: 28px;
+      font-weight: 800;
+      color: #000;
+      margin-bottom: 20px;
+      box-shadow: 0 0 32px rgba(0,229,255,0.3);
+    }
+    .home-hero h1 {
+      font-size: 42px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 10px;
+      letter-spacing: -1px;
+    }
+    .home-hero h1 span { color: var(--cyan); }
+    .home-hero p {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .module-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px 28px;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .module-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .module-card.blue  { border-color: rgba(0,229,255,0.3); }
+    .module-card.blue:hover  { border-color: var(--cyan); box-shadow: 0 8px 32px rgba(0,229,255,0.15); }
+    .module-card.purple { border-color: rgba(179,136,255,0.3); }
+    .module-card.purple:hover { border-color: var(--accent2); box-shadow: 0 8px 32px rgba(179,136,255,0.15); }
+    .module-card.green { border-color: rgba(0,230,118,0.3); }
+    .module-card.green:hover  { border-color: var(--green); box-shadow: 0 8px 32px rgba(0,230,118,0.15); }
+    .module-icon {
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+    .module-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .tag-blue   { background: rgba(0,229,255,0.12); color: var(--cyan); }
+    .tag-purple { background: rgba(179,136,255,0.12); color: var(--accent2); }
+    .tag-green  { background: rgba(0,230,118,0.12); color: var(--green); }
+    .module-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+    .module-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      flex: 1;
+      margin-bottom: 24px;
+    }
+    .module-features {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 24px 0;
+    }
+    .module-features li {
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 4px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .module-features li::before {
+      content: '→';
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+    .module-cta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+    }
+    .module-card.blue  .module-cta-label { color: var(--cyan); }
+    .module-card.purple .module-cta-label { color: var(--accent2); }
+    .module-card.green  .module-cta-label { color: var(--green); }
+    .module-cta-label {
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .status-badge {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+    .status-live   { background: rgba(0,230,118,0.15); color: var(--green); }
+    .status-coming { background: rgba(255,214,0,0.12); color: var(--yellow); }
+    .initiatives {
+      margin-top: 56px;
+      padding: 28px 32px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .initiatives h4 {
+      font-size: 13px;
+      color: var(--text-muted);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .initiatives-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .initiative-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .initiative-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .initiative-item h5 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .initiative-item p {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+    @media (max-width: 700px) {
+      .modules-grid { grid-template-columns: 1fr; }
+      .initiatives-grid { grid-template-columns: 1fr; }
+      .home-hero h1 { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <img src="src/logo.svg" alt="Tally" style="width:36px;height:36px;border-radius:8px;display:block;flex-shrink:0;">
+      <div class="logo-text">Tally</div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill connected">
+        <div class="dot pulse"></div> Data, Verified.
+      </div>
+    </div>
+  </header>
+
+  <!-- HOME -->
+  <div class="home-wrap">
+
+    <!-- HERO -->
+    <div class="home-hero">
+      <img src="src/logo.svg" alt="Tally" class="hero-mark" style="background:none;padding:0;">
+      <h1>Tally</h1>
+      <p>Data, Verified. — One platform for data reconciliation, transaction code mapping, and data quality measurement across any source system.</p>
+    </div>
+
+    <!-- MODULE CARDS -->
+    <div class="modules-grid">
+
+      <!-- Data Reconciliation -->
+      <a href="data-recs.html" class="module-card blue">
+        <div class="module-icon">⚡</div>
+        <div class="module-tag tag-blue">Module 1</div>
+        <h3>Volume &amp; Content Tally</h3>
+        <p>Reconcile source vs target by primary key (volume) and compare non-key columns on matched records (content), with optional hashing per column.</p>
+        <ul class="module-features">
+          <li>Primary key reconciliation</li>
+          <li>Content column comparison</li>
+          <li>Privacy hashing via Project C</li>
+          <li>Matched / unmatched summary</li>
+          <li>Multi-source support</li>
+        </ul>
+        <div class="module-cta">
+          <span class="module-cta-label">Launch →</span>
+          <span class="status-badge status-live">Live</span>
+        </div>
+      </a>
+
+      <!-- TTCM -->
+      <a href="ttcm.html" class="module-card purple">
+        <div class="module-icon">🔄</div>
+        <div class="module-tag tag-purple">Module 2</div>
+        <h3>TTCM</h3>
+        <p>Compare two months of transaction type code data and identify all additions, deletions, and mapping changes.</p>
+        <ul class="module-features">
+          <li>Month-over-month comparison</li>
+          <li>Added / deleted codes</li>
+          <li>Mapping change detection</li>
+          <li>Multi-source support</li>
+          <li>Change summary report</li>
+        </ul>
+        <div class="module-cta">
+          <span class="module-cta-label">Launch →</span>
+          <span class="status-badge status-live">Live</span>
+        </div>
+      </a>
+
+      <!-- DQM -->
+      <a href="dqm.html" class="module-card green">
+        <div class="module-icon">📊</div>
+        <div class="module-tag tag-green">Module 3</div>
+        <h3>Data Quality</h3>
+        <p>Measure the quality of target system data for a specific month across completeness, conformity, and specificity dimensions.</p>
+        <ul class="module-features">
+          <li>Completeness checks</li>
+          <li>Conformity validation</li>
+          <li>Specificity scoring</li>
+          <li>Monthly quality report</li>
+          <li>GCP BigQuery target</li>
+        </ul>
+        <div class="module-cta">
+          <span class="module-cta-label">Launch →</span>
+          <span class="status-badge status-live">Live</span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- HISTORY LINK -->
+    <div style="margin-top:24px;padding:20px 28px;background:var(--surface);border:1px solid var(--border);border-radius:14px;display:flex;align-items:center;justify-content:space-between;gap:20px;">
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div style="font-size:22px;">📋</div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px;">Run History</div>
+          <div style="font-size:12px;color:var(--text-muted);line-height:1.6;">View past reconciliation runs, exception summaries, Jira tickets, and ask the AI agent about historical results.</div>
+        </div>
+      </div>
+      <a href="history.html" class="btn btn-secondary btn-sm" style="white-space:nowrap;flex-shrink:0;">View →</a>
+    </div>
+
+    <!-- INITIATIVES -->
+    <div class="initiatives">
+      <h4>Strategic Initiatives</h4>
+      <div class="initiatives-grid">
+        <div class="initiative-item">
+          <div class="initiative-dot" style="background:var(--cyan);"></div>
+          <div>
+            <h5>Demise Legacy</h5>
+            <p>Replaces three existing FC applications with a single unified platform.</p>
+          </div>
+        </div>
+        <div class="initiative-item">
+          <div class="initiative-dot" style="background:var(--accent2);"></div>
+          <div>
+            <h5>Simplify to Amplify</h5>
+            <p>One pit stop for all financial controls — simplified and expandable.</p>
+          </div>
+        </div>
+        <div class="initiative-item">
+          <div class="initiative-dot" style="background:var(--green);"></div>
+          <div>
+            <h5>AI Initiative</h5>
+            <p>Foundation for AI-powered controls, anomaly detection, and automation at scale.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /home-wrap -->
+
+</body>
+</html>
