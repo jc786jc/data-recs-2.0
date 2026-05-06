@@ -399,8 +399,8 @@
           </div>
         </div>
         <div class="form-group" style="max-width:420px;">
-          <label>Secret Salt &nbsp;<span style="color:var(--accent3); font-size:11px;">⚠️ Never sent to any GCP project — stays in browser only</span></label>
-          <input type="password" id="secret-salt" placeholder="Enter a secret passphrase" oninput="validateStep1(); updateHashPreviews()"/>
+          <label>Secret Salt &nbsp;<span style="color:var(--text-muted); font-size:11px;">(optional — required only if primary key hashing is ON) &nbsp;⚠️ Never sent to any GCP project</span></label>
+          <input type="password" id="secret-salt" placeholder="Enter a secret passphrase (leave blank if hashing is OFF)" oninput="validateStep1(); updateHashPreviews()"/>
         </div>
       </div>
       </div><!-- /step1-bq-section -->

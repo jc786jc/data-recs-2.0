@@ -155,7 +155,7 @@ function validateStep1() {
     ? ['proj-b-sb-host', 'proj-b-sb-catalog', 'proj-b-dataset', 'proj-b-table']
     : ['proj-b-id', 'proj-b-dataset', 'proj-b-table'];
 
-  const required = [...srcRequired, ...tgtRequired, 'proj-c-id', 'proj-c-dataset', 'secret-salt'];
+  const required = [...srcRequired, ...tgtRequired, 'proj-c-id', 'proj-c-dataset'];
   const allFilled = required.every(id => getVal(id) !== '');
   document.getElementById('btn-step1-next').disabled = !allFilled;
 }
@@ -211,8 +211,8 @@ async function fetchColumns(which) {
     return;
   }
 
-  const container = document.getElementById(`${which}-hash-fields-list`);
-  container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:6px 0;">Loading columns…</div>`;
+  const container = document.getElementById(`${which}-content-cols-list`);
+  if (container) container.innerHTML = `<div style="color:var(--text-muted);font-size:12px;padding:6px 0;">Loading columns…</div>`;
 
   try {
     const sql = `SELECT column_name, data_type
@@ -704,8 +704,8 @@ async function runReconciliation() {
     return;
   }
 
-  if (!projC || !dsC || !salt) {
-    body.innerHTML = `<div class="alert alert-error">❌ Project C, dataset, and secret salt are required. Configure them in Step 1.</div>`;
+  if (!projC || !dsC) {
+    body.innerHTML = `<div class="alert alert-error">❌ Project C and dataset are required. Configure them in Step 1.</div>`;
     return;
   }
 
