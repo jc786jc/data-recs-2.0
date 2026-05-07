@@ -34,6 +34,8 @@ const state = {
   currentStep:    1,
   currentRunId:   null,  // ID of the active history run
   csvMode:        false, // true when CSV files are used instead of BigQuery
+  contentMapping: [],    // content column pairs used in last run
+  contentSummary: null,  // { total, per-column match/mismatch } from last run
 };
 
 /* ── NAVIGATION ──────────────────────────────────────────────── */
@@ -465,21 +467,24 @@ function updateHashPreviews() {
   ['src', 'tgt'].forEach(which => {
     const isA      = which === 'src';
     const platform = getVal(isA ? 'proj-a-type' : 'proj-b-type');
-    // Preview shows the match key hash only (single column → hash_key)
-    const keyCol   = matchKey[which] || 'your_match_key_col';
-    const salt     = getVal('secret-salt') ? '••••••' : '(enter salt in Step 1)';
-    const trim     = document.getElementById(isA ? 'src-norm-trim'  : 'tgt-norm-trim')?.checked;
-    const upper    = document.getElementById(isA ? 'src-norm-upper' : 'tgt-norm-upper')?.checked;
-    const lpad     = document.getElementById(isA ? 'src-norm-lpad'  : 'tgt-norm-lpad')?.checked;
-    const lpadW    = getVal(isA ? 'src-lpad-width' : 'tgt-lpad-width') || '10';
+    const hashOn   = pkHashEnabled[which];
 
-    const preview = document.getElementById(`${which}-hash-preview`);
-    if (preview) {
-      const expr = buildHashExpr(platform, [keyCol], salt, trim, upper, lpad, lpadW);
-      preview.textContent = expr || '—';
+    // Show/hide the entire preview section based on hash toggle
+    const previewWrap = document.getElementById(`${which}-hash-preview-wrap`);
+    if (previewWrap) previewWrap.style.display = hashOn ? 'block' : 'none';
+
+    if (hashOn) {
+      const keyCol = matchKey[which] || 'your_match_key_col';
+      const salt   = getVal('secret-salt') ? '••••••' : '(no salt — enter one in Step 1 for privacy)';
+      const trim   = document.getElementById(isA ? 'src-norm-trim'  : 'tgt-norm-trim')?.checked;
+      const upper  = document.getElementById(isA ? 'src-norm-upper' : 'tgt-norm-upper')?.checked;
+      const lpad   = document.getElementById(isA ? 'src-norm-lpad'  : 'tgt-norm-lpad')?.checked;
+      const lpadW  = getVal(isA ? 'src-lpad-width' : 'tgt-lpad-width') || '10';
+      const preview = document.getElementById(`${which}-hash-preview`);
+      if (preview) preview.textContent = buildHashExpr(platform, [keyCol], salt, trim, upper, lpad, lpadW) || '—';
     }
 
-    // Show/hide Oracle/Hive template block
+    // Show/hide Oracle/Hive/Starburst template block
     const tmplBlock = document.getElementById(`${which}-oracle-template`);
     const tmplTA    = document.getElementById(`${which}-platform-sql`);
     if (tmplBlock && tmplTA) {
@@ -840,8 +845,24 @@ WHERE hash_key NOT IN (SELECT hash_key FROM \`${projC}.${dsC}.target_hashed\`);`
 
     // ── Content reconciliation ───────────────────────────────────────────────
     const mapping = _buildContentMapping();
+    const contentWrap = document.getElementById('content-rec-result-wrap');
+    const contentBody = document.getElementById('content-rec-result-body');
+
     if (mapping.length > 0 && state.matchedCount > 0) {
       await _runContentRec(mapping, projC, dsC, locC);
+    } else if (contentWrap && contentBody) {
+      contentWrap.style.display = 'block';
+      contentBody.innerHTML = mapping.length === 0
+        ? `<div class="alert alert-info" style="font-size:12px;">
+             ℹ️ No content columns configured — only volume reconciliation ran.
+             To compare non-key columns, go back to
+             <strong>Step 2</strong> and <strong>Step 3</strong>, click
+             <strong>⟳ Load Columns</strong>, then <strong>+ Add Column</strong>
+             to select the columns you want to compare on matched records.
+           </div>`
+        : `<div class="alert alert-info" style="font-size:12px;">
+             ℹ️ Content reconciliation skipped — no matched records to compare.
+           </div>`;
     }
 
     wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -909,6 +930,10 @@ JOIN \`${projC}.${dsC}.target_hashed\` t ON s.hash_key = t.hash_key;`,
 }
 
 function _renderContentResults(mapping, summary) {
+  // Store in state so Step 6 summary can also display them
+  state.contentMapping = mapping;
+  state.contentSummary = summary;
+
   const contentBody = document.getElementById('content-rec-result-body');
   const total = Number(summary.total || 0);
 
@@ -1107,6 +1132,57 @@ function buildUnmaskSQL(which) {
   return '';
 }
 
+/** Builds the content reconciliation HTML block for Step 6 Summary. */
+function _buildContentSummaryHTML() {
+  const mapping = state.contentMapping || [];
+  const summary = state.contentSummary;
+
+  if (!mapping.length || !summary) {
+    return `<div class="card" style="margin-top:20px;border-color:rgba(255,255,255,0.05);">
+      <div class="card-title">📋 Content Reconciliation</div>
+      <div class="alert alert-info" style="font-size:12px;margin:0;">
+        ℹ️ Content reconciliation was not run. To compare non-key columns, go to
+        <strong>Step 2</strong> and <strong>Step 3</strong>, click <strong>⟳ Load Columns</strong>,
+        then <strong>+ Add Column</strong> to select columns — you must add columns in <strong>both</strong> steps.
+      </div>
+    </div>`;
+  }
+
+  const total = Number(summary.total || 0);
+  const rows = mapping.map(m => {
+    const match = Number(summary[`${m.label}_match`]    || 0);
+    const miss  = Number(summary[`${m.label}_mismatch`] || 0);
+    const pct   = total > 0 ? (match / total * 100).toFixed(1) : '0.0';
+    const color = Number(pct) >= 95 ? 'var(--green)' : Number(pct) >= 80 ? 'var(--yellow)' : 'var(--accent3)';
+    const hashNote = (m.hashSrc || m.hashTgt)
+      ? `<span style="font-size:10px;color:var(--text-dim);margin-left:4px;">🔒 hashed</span>` : '';
+    return `<tr>
+      <td style="font-family:var(--mono);font-size:12px;">${escHtml(m.display)}${hashNote}</td>
+      <td style="text-align:right;color:var(--green);">${match.toLocaleString()}</td>
+      <td style="text-align:right;color:var(--accent3);">${miss.toLocaleString()}</td>
+      <td style="text-align:right;font-weight:700;color:${color};">${pct}%</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="card" style="margin-top:20px;border-color:rgba(0,229,255,0.15);">
+    <div class="card-title">📋 Content Reconciliation — ${total.toLocaleString()} matched records compared</div>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Column Pair</th>
+          <th style="text-align:right;">Match</th>
+          <th style="text-align:right;">Mismatch</th>
+          <th style="text-align:right;">Match %</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:8px;">
+      🔒 = column hashed before comparison — mismatch detected but actual value not visible in Project C.
+    </div>
+  </div>`;
+}
+
 function buildSummary() {
   if (!state.matchedCount && !state.unmatchedCount) {
     document.getElementById('summary-body').innerHTML = `<div class="alert alert-error">❌ No reconciliation results found. Please run reconciliation first.</div>`;
@@ -1191,6 +1267,9 @@ function buildSummary() {
         </table>
       </div>
     </div>
+
+    <!-- CONTENT RECONCILIATION SUMMARY -->
+    ${_buildContentSummaryHTML()}
 
     <!-- ACTIONS -->
     <div class="card" style="margin-top:20px; border-color:var(--accent2);">

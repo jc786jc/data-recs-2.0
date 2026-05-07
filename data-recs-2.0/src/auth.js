@@ -117,10 +117,6 @@ function activateApp(displayName) {
     updateJiraBellVisibility();
   }
 
-  // Default to CSV mode on data-recs page
-  if (typeof setStep1Mode === 'function') {
-    setStep1Mode('csv');
-  }
 }
 
 /**

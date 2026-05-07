@@ -14,7 +14,7 @@ import urllib.request
 import urllib.error
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "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"
 CLAUDE_MODEL      = "claude-sonnet-4-6"
 
 AGENT_SYSTEM = """You are a data reconciliation agent for Tally, a financial data controls platform.
@@ -252,7 +252,7 @@ class TallyHandler(SimpleHTTPRequestHandler):
 if __name__ == '__main__':
     port   = 9000
     server = HTTPServer(('', port), TallyHandler)
-    print(f'\n  Tally running at http://localhost:{port}')
+    print(f'\n  Tally — The Controls App running at http://localhost:{port}')
     print(f'  Claude agent ready ({CLAUDE_MODEL})\n')
     try:
         server.serve_forever()
