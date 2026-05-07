@@ -14,7 +14,7 @@ import urllib.request
 import urllib.error
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = ""
 CLAUDE_MODEL      = "claude-sonnet-4-6"
 
 AGENT_SYSTEM = """You are a data reconciliation agent for Tally, a financial data controls platform.
